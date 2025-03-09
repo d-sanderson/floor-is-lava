@@ -138,7 +138,7 @@ vec4 frag(vec2 pos, vec2 uv, vec4 color, sampler2D tex) {
 const SPEED = 120;
 const JUMP_FORCE = 300; // Increased jump force
 const DOUBLE_JUMP_FORCE = 260; // Increased double jump force
-const LAVA_RISE_SPEED = 40; // Increased lava rise speed
+const LAVA_RISE_SPEED = 50; // Increased lava rise speed
 const PLATFORM_WIDTH = 100;
 const PLATFORM_HEIGHT = 10;
 const NUM_PLATFORMS = 15; // More platforms
@@ -476,6 +476,45 @@ onUpdate(() => {
     camPos(camPos().x, player.pos.y);
   }
 });
+
+
+// Mobile controls
+const isMobile = () => {
+  return typeof window.orientation !== "undefined" || navigator.userAgent.indexOf("IEMobile") !== -1;
+};
+
+if (isMobile()) {
+  const touchSpeed = 200;
+  const touchDirection = vec2(0, 0);
+  const touchStart = vec2(0, 0);
+  const touchEnd = vec2(0, 0);
+
+  onTouchStart((pos) => {
+    touchStart.set(pos);
+  });
+
+  onTouchMove((pos) => {
+    touchDirection.set(touchStart).sub(pos).normalize();
+  });
+
+  onTouchEnd(() => {
+    if (gameOver) return;
+
+    if (touchDirection.x < 0) {
+      player.move(-touchSpeed, 0);
+    } else if (touchDirection.x > 0) {
+      player.move(touchSpeed, 0);
+    }
+
+    if (touchDirection.y < 0) {
+      if (player.isGrounded()) {
+        player.jump(JUMP_FORCE);
+      } else if (player.doubleJump()) {
+        player.play("jump");
+      }
+    }
+  });
+}
 
 // Start the game
 startGame();
