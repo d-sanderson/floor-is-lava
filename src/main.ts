@@ -43,6 +43,9 @@ loadSprite("coin", "/sprites/coin.png", {
   sliceX: 1,
 });
 
+loadSound("coin-collected", "/sfx/coin-collected.mp3");
+loadSound("jump", "/sfx/jump.mp3")
+
 // Game constants
 const SPEED = 120;
 const JUMP_FORCE = 300; // Increased jump force
@@ -236,9 +239,11 @@ onKeyPress("space", () => {
   if (player.isGrounded()) {
     player.jump(JUMP_FORCE);
     player.play("jump");
+    play("jump");
   } else {
     if (player.doubleJump()) {
       player.play("jump");
+      play("jump");
     }
   }
 });
@@ -295,6 +300,12 @@ player.onCollide("coin", (coin) => {
   destroy(coin);
   coinsCollected++;
   score += 10;
+
+  //play coin collect sound
+  play("coin-collected", {
+    volume: 1,
+    speed: 1,
+});
   coinCounter.text = `Coins: ${coinsCollected}`;
   scoreLabel.text = `Score: ${score}`;
 });
