@@ -303,7 +303,7 @@ function spawnPlatforms() {
       rect(platformWidth, PLATFORM_HEIGHT),
       area(),
       outline(1),
-      color(rgb(100, 200, 120)),
+      color(rgb(85, 85, 85)),
       pos(x, y),
       body({ isStatic: true }),
       layer("game"),
