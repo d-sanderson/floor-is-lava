@@ -45,12 +45,100 @@ loadSprite("coin", "/sprites/coin.png", {
 
 loadSound("coin-collected", "/sfx/coin-collected.mp3");
 loadSound("jump", "/sfx/jump.mp3")
+loadSound("dead", "/sfx/dead.mp3")
+
+loadShader(
+  "lava",
+  null,
+  `
+uniform float u_time;
+
+// Simplex noise functions modified from https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
+vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+
+float snoise(vec2 v) {
+const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+        -0.577350269189626, 0.024390243902439);
+vec2 i  = floor(v + dot(v, C.yy));
+vec2 x0 = v -   i + dot(i, C.xx);
+vec2 i1;
+i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+vec4 x12 = x0.xyxy + C.xxzz;
+x12.xy -= i1;
+i = mod(i, 289.0);
+vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+  + i.x + vec3(0.0, i1.x, 1.0 ));
+vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+  dot(x12.zw,x12.zw)), 0.0);
+m = m*m;
+m = m*m;
+vec3 x = 2.0 * fract(p * C.www) - 1.0;
+vec3 h = abs(x) - 0.5;
+vec3 ox = floor(x + 0.5);
+vec3 a0 = x - ox;
+m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+vec3 g;
+g.x  = a0.x  * x0.x  + h.x  * x0.y;
+g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+return 130.0 * dot(m, g);
+}
+
+vec4 frag(vec2 pos, vec2 uv, vec4 color, sampler2D tex) {
+  // Base lava color
+  vec3 lavaColor1 = vec3(0.9, 0.2, 0.0); // Orange-red
+  vec3 lavaColor2 = vec3(1.0, 0.6, 0.0); // Brighter orange
+  vec3 darkLava = vec3(0.4, 0.02, 0.0);  // Dark red for cracks
+  
+  // Time variables for animation
+  float slowTime = u_time * 0.4;
+  float mediumTime = u_time * 0.8;
+  float fastTime = u_time * 2.0;
+  
+  // Scale UV coordinates for better effect
+  vec2 scaledUV = uv * 2.5;
+  
+  // Create multiple layers of noise for more complex effect
+  float noise1 = snoise(scaledUV + vec2(slowTime * 0.3, slowTime * 0.2)) * 0.5 + 0.5;
+  float noise2 = snoise(scaledUV * 2.0 + vec2(-mediumTime * 0.2, mediumTime * 0.1)) * 0.5 + 0.5;
+  float noise3 = snoise(scaledUV * 4.0 + vec2(fastTime * 0.1, -fastTime * 0.15)) * 0.5 + 0.5;
+  
+  // Combine noise layers
+  float combinedNoise = noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2;
+  
+  // Create bubbling effect with sharper transitions
+  float bubbles = smoothstep(0.4, 0.6, noise3);
+  
+  // Create cracks pattern
+  float cracks = smoothstep(0.4, 0.5, abs(noise2 - 0.5) * 2.0);
+  
+  // Glow effect with pulsing
+  float glow = sin(fastTime) * 0.5 + 0.5;
+  
+  // Mix colors based on noise
+  vec3 finalColor = mix(lavaColor1, lavaColor2, combinedNoise);
+  
+  // Add dark cracks
+  finalColor = mix(finalColor, darkLava, cracks * 0.7);
+  
+  // Add bubbles (brighter spots)
+  finalColor = mix(finalColor, vec3(1.0, 0.8, 0.3), bubbles * 0.4);
+  
+  // Add overall glow
+  finalColor += vec3(0.1, 0.02, 0.0) * glow;
+  
+  // Add a bit of original color for texture blending if needed
+  vec4 origColor = def_frag();
+  
+  return vec4(finalColor, 1.0);
+}
+`,
+);
 
 // Game constants
 const SPEED = 120;
 const JUMP_FORCE = 300; // Increased jump force
 const DOUBLE_JUMP_FORCE = 260; // Increased double jump force
-const LAVA_RISE_SPEED = 30; // Increased lava rise speed
+const LAVA_RISE_SPEED = 40; // Increased lava rise speed
 const PLATFORM_WIDTH = 100;
 const PLATFORM_HEIGHT = 10;
 const NUM_PLATFORMS = 15; // More platforms
@@ -107,7 +195,10 @@ const lava = add([
   area(),
   layer("game"),
   "lava",
-  z(100)
+  z(100),
+  shader("lava", () => ({
+    "u_time": time(),
+})),
 ]);
 
 // UI elements
@@ -165,9 +256,9 @@ function spawnPlatforms() {
   for (let i = 0; i < NUM_PLATFORMS; i++) {
     const x = rand(50, width() - 50 - PLATFORM_WIDTH);
     const y = height() - 100 - i * PLATFORM_SPACING;
-    
+    const platformWidth =  rand(PLATFORM_WIDTH - 50, PLATFORM_WIDTH + 50)
     add([
-      rect(rand(PLATFORM_WIDTH - 50, PLATFORM_WIDTH + 50), PLATFORM_HEIGHT),
+      rect(platformWidth, PLATFORM_HEIGHT),
       area(),
       outline(1),
       color(rgb(100, 200, 120)),
@@ -228,7 +319,7 @@ function startGame() {
   const lowestPlatform = get("platform").reduce((lowest, platform) => {
     return platform.pos.y > lowest.pos.y ? platform : lowest;
   }, get("platform")[0]);
-  player.pos = vec2(lowestPlatform.pos.x, lowestPlatform.pos.y - 50);
+  player.pos = vec2(lowestPlatform.pos.x + PLATFORM_WIDTH / 2, lowestPlatform.pos.y - PLATFORM_HEIGHT);
   player.play("idle");
 }
 
@@ -318,7 +409,7 @@ player.onCollide("lava", () => {
     coinCounter.hidden = true
     scoreLabel.hidden = true
     timeLabel.hidden = true
-    
+    play("dead") 
     shake(12);
 
     add([
@@ -359,8 +450,14 @@ player.onUpdate(() => {
 // Game update
 onUpdate(() => {
   if (!gameOver) {
-    // Move lava upward continuously
-    lava.pos.y -= LAVA_RISE_SPEED * dt();
+
+    // Make the lava rise faster over time
+    // The speed of the lava is modified by a power function to make it rise exponentially
+    // The power function is used to make the lava speed up quickly at the start but slow down later
+    // The power function is: `LAVA_RISE_SPEED * Math.pow(1.1, survivalTime * 0.01) * dt()`
+    // The `survivalTime * 0.01` is used to make the lava speed up faster at the start and slower later
+    // The `dt()` is used to make the lava speed up based on the time since the last frame
+    lava.pos.y -= LAVA_RISE_SPEED * Math.pow(1.1, survivalTime * 0.01) * dt();
     
     // Update survival time
     survivalTime += dt();
