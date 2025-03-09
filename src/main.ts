@@ -10,6 +10,7 @@ kaplay({
   // Set the default font
   font: "monospace",
   background: [15, 15, 15],
+  touchToMouse: true, // Enable touch to mouse conversion for basic interactions
 });
 
 const transformText = (idx, ch) => ({
@@ -43,6 +44,11 @@ loadSprite("coin", "/sprites/coin.png", {
   sliceX: 1,
 });
 
+// Load button sprites
+loadSprite("left-button", "/sprites/left-button.png", { sliceX: 1 });
+loadSprite("right-button", "/sprites/right-button.png", { sliceX: 1 });
+loadSprite("jump-button", "/sprites/jump-button.png", { sliceX: 1 });
+
 // Game constants
 const SPEED = 120;
 const JUMP_FORCE = 300; // Increased jump force
@@ -60,6 +66,12 @@ let coinsCollected = 0;
 let gameOver = false;
 let survivalTime = 0;
 let lastPlatformY = 0;
+let isMobile = false;
+let moveLeft = false;
+let moveRight = false;
+
+// Check if the device is mobile
+isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Set up physics
 setGravity(640);
@@ -94,6 +106,7 @@ setLayers([
   "bg",     // Background
   "game",   // Main game elements
   "ui",     // UI elements
+  "controls" // Mobile controls layer
 ], "game");
 
 // Add lava
@@ -151,6 +164,131 @@ const player = add([
 // Play initial animation
 player.play("idle");
 
+// Mobile controls
+let leftButton, rightButton, jumpButton;
+
+function addMobileControls() {
+  const buttonSize = 50;
+  const buttonMargin = 20;
+  const buttonY = height() - buttonMargin - buttonSize/2;
+  
+  // Left button
+  leftButton = add([
+    circle(buttonSize/2),
+    color(rgb(255, 255, 255)),
+    outline(2, rgb(255, 255, 255)),
+    pos(buttonMargin + buttonSize/2, buttonY),
+    area(),
+    layer("controls"),
+    fixed(),
+    opacity(0.7),
+    z(200),
+    "control-button",
+  ]);
+  
+  add([
+    text("←", { size: 32 }),
+    pos(buttonMargin + buttonSize/2, buttonY),
+    color(rgb(255, 255, 255)),
+    anchor("center"),
+    layer("controls"),
+    fixed(),
+    z(201),
+    "control-label",
+  ]);
+
+  // Right button
+  rightButton = add([
+    circle(buttonSize/2),
+    color(rgb(255, 255, 255)),
+    outline(2, rgb(255, 255, 255)),
+    pos(buttonMargin + buttonSize*2, buttonY),
+    area(),
+    layer("controls"),
+    fixed(),
+    opacity(0.7),
+    z(200),
+    "control-button",
+  ]);
+  
+  add([
+    text("→", { size: 32 }),
+    pos(buttonMargin + buttonSize*2, buttonY),
+    color(rgb(255, 255, 255)),
+    anchor("center"),
+    layer("controls"),
+    fixed(),
+    z(201),
+    "control-label",
+  ]);
+
+  // Jump button
+  jumpButton = add([
+    circle(buttonSize/2),
+    color(rgb(255, 255, 255)),
+    outline(2, rgb(255, 255, 255)),
+    pos(width() - buttonMargin - buttonSize/2, buttonY),
+    area(),
+    layer("controls"),
+    fixed(),
+    opacity(0.7),
+    z(200),
+    "control-button",
+  ]);
+  
+  add([
+    text("↑", { size: 32 }),
+    pos(width() - buttonMargin - buttonSize/2, buttonY),
+    color(rgb(255, 255, 255)),
+    anchor("center"),
+    layer("controls"),
+    fixed(),
+    z(201),
+    "control-label",
+  ]);
+
+  // Left button event handlers
+  leftButton.onClick(() => {
+    moveLeft = true;
+  });
+  
+  leftButton.onTouchStart(() => {
+    moveLeft = true;
+  });
+  
+  leftButton.onTouchEnd(() => {
+    moveLeft = false;
+    if (player.isGrounded() && !moveRight) {
+      player.play("idle");
+    }
+  });
+
+  // Right button event handlers
+  rightButton.onClick(() => {
+    moveRight = true;
+  });
+  
+  rightButton.onTouchStart(() => {
+    moveRight = true;
+  });
+  
+  rightButton.onTouchEnd(() => {
+    moveRight = false;
+    if (player.isGrounded() && !moveLeft) {
+      player.play("idle");
+    }
+  });
+
+  // Jump button event handlers
+  jumpButton.onClick(() => {
+    handleJump();
+  });
+  
+  jumpButton.onTouchStart(() => {
+    handleJump();
+  });
+}
+
 // Function to generate random platforms
 function spawnPlatforms() {
   // Clear existing platforms
@@ -197,7 +335,20 @@ function spawnCoins() {
       "coin",
       scale(0.25),
     ]);
+  }
+}
 
+// Handle jump logic
+function handleJump() {
+  if (gameOver) return;
+  
+  if (player.isGrounded()) {
+    player.jump(JUMP_FORCE);
+    player.play("jump");
+  } else {
+    if (player.doubleJump()) {
+      player.play("jump");
+    }
   }
 }
 
@@ -207,10 +358,12 @@ function startGame() {
   score = 0;
   coinsCollected = 0;
   survivalTime = 0;
+  moveLeft = false;
+  moveRight = false;
 
-  scoreLabel.hidden = false
-  coinCounter.hidden = false
-  timeLabel.hidden = false
+  scoreLabel.hidden = false;
+  coinCounter.hidden = false;
+  timeLabel.hidden = false;
   
   // Reset lava position
   lava.pos.y = height();
@@ -227,20 +380,16 @@ function startGame() {
   }, get("platform")[0]);
   player.pos = vec2(lowestPlatform.pos.x, lowestPlatform.pos.y - 50);
   player.play("idle");
+  
+  // Add mobile controls if they don't exist yet
+  if (get("control-button").length === 0 && isMobile) {
+    addMobileControls();
+  }
 }
 
-// Player controls
+// Player controls (keyboard)
 onKeyPress("space", () => {
-  if (gameOver) return;
-  
-  if (player.isGrounded()) {
-    player.jump(JUMP_FORCE);
-    player.play("jump");
-  } else {
-    if (player.doubleJump()) {
-      player.play("jump");
-    }
-  }
+  handleJump();
 });
 
 onKeyDown("left", () => {
@@ -281,9 +430,17 @@ onKeyPress("r", () => {
   }
 });
 
+// Restart game on tap when game over
+onClick(() => {
+  if (gameOver) {
+    get("gameOverText").forEach(destroy);
+    startGame();
+  }
+});
+
 // Switch to "idle" or "run" animation when player hits ground
 player.onGround(() => {
-  if (!isKeyDown("left") && !isKeyDown("right")) {
+  if (!isKeyDown("left") && !isKeyDown("right") && !moveLeft && !moveRight) {
     player.play("idle");
   } else {
     player.play("run");
@@ -304,32 +461,31 @@ player.onCollide("lava", () => {
   if (!gameOver) {
     gameOver = true;
     // hide coin counter, score label, and time label
-    coinCounter.hidden = true
-    scoreLabel.hidden = true
-    timeLabel.hidden = true
+    coinCounter.hidden = true;
+    scoreLabel.hidden = true;
+    timeLabel.hidden = true;
     
     shake(12);
 
     add([
-      text(`Game Over!\nScore: ${score}\nPress R to restart`, {
+      text(`Game Over!\nScore: ${score}\nTap to restart`, {
         // What font to use
         font: "monospace",
         // It'll wrap to next line if the text width exceeds the width option specified here
-        width: width() - 24 *2,
+        width: width() - 24 * 2,
         // The height of character
         size: 24,
         // Text alignment ("left", "center", "right", default "left")
-        align: "left",
+        align: "center",
         lineSpacing: 8,
         letterSpacing: 4,
         // Transform each character for special effects
         transform: transformText,
-    }),
+      }),
       pos(center()),
       anchor("center"),
       layer("ui"),
       fixed(),
-      // scale(0),
       "gameOverText",
     ]);
   }
@@ -345,9 +501,26 @@ player.onUpdate(() => {
   }
 });
 
-// Game update
+// Handle mobile controls in update loop
 onUpdate(() => {
   if (!gameOver) {
+    // Handle mobile movement
+    if (moveLeft) {
+      player.move(-SPEED, 0);
+      player.flipX = true;
+      if (player.isGrounded() && player.curAnim() !== "run") {
+        player.play("run");
+      }
+    }
+    
+    if (moveRight) {
+      player.move(SPEED, 0);
+      player.flipX = false;
+      if (player.isGrounded() && player.curAnim() !== "run") {
+        player.play("run");
+      }
+    }
+    
     // Move lava upward continuously
     lava.pos.y -= LAVA_RISE_SPEED * dt();
     
