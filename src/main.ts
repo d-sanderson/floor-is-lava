@@ -46,6 +46,7 @@ loadSprite("coin", "/sprites/coin.png", {
 loadSound("coin-collected", "/sfx/coin-collected.mp3");
 loadSound("jump", "/sfx/jump.mp3")
 loadSound("dead", "/sfx/dead.mp3")
+loadSound("mute", "/sfx/switch.mp3")
 
 loadShader(
   "lava",
@@ -141,7 +142,7 @@ const DOUBLE_JUMP_FORCE = 260; // Increased double jump force
 const LAVA_RISE_SPEED = 40; // Increased lava rise speed
 const PLATFORM_WIDTH = 100;
 const PLATFORM_HEIGHT = 10;
-const NUM_PLATFORMS = 15; // More platforms
+const NUM_PLATFORMS = 24; // More platforms
 const PLATFORM_SPACING = 70; // Closer platform spacing (was 100)
 const NUM_COINS = 15;
 
@@ -202,6 +203,47 @@ const lava = add([
 ]);
 
 // UI elements
+
+// Add these lines near the top of your script with other game constants
+let isMuted = false;
+
+// Add this function to toggle sound state
+function toggleMute() {
+  isMuted = !isMuted;
+  
+  // KaPlay's volume control (0 = muted, 1 = full volume)
+  volume(isMuted ? 0 : 1);
+  
+  // Update the mute button text
+  if (muteBtn) {
+    muteBtn.text = isMuted ? "🔇" : "🔊";
+  }
+}
+
+// Add this with your UI elements
+const muteBtn = add([
+  text("🔊"),
+  pos(width() - 24, 24),
+  anchor("topright"),
+  area({ cursor: "pointer" }),
+  layer("ui"),
+  fixed(),
+  scale(.25),
+  "muteBtn",
+]);
+
+// Add this with your other input handlers
+muteBtn.onClick(() => {
+  toggleMute();
+  play("mute")
+});
+
+// You can also add a keyboard shortcut if you want
+onKeyPress("m", () => {
+  toggleMute();
+  play("mute")
+});
+
 const scoreLabel = add([
   text("Score: 0", { transform: transformText }),
   pos(12, 12),
