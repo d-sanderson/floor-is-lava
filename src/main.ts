@@ -12,6 +12,12 @@ kaplay({
   background: [15, 15, 15],
 });
 
+const transformText = (idx, ch) => ({
+  color: hsl2rgb((time() * 0.2 + idx * 0.1) % 1, 0.7, 0.8),
+  pos: vec2(0, wave(-4, 4, time() * 4 + idx * 0.5)),
+  scale: wave(1, 1.2, time() * 3 + idx),
+  angle: wave(-9, 9, time() * 3 + idx),
+})
 // Loading sprites
 loadSprite("dino", "/sprites/dino.png", {
   sliceX: 9,
@@ -103,30 +109,30 @@ const lava = add([
 
 // UI elements
 const scoreLabel = add([
-  text("Score: 0"),
-  pos(12, 24),
+  text("Score: 0", { transform: transformText }),
+  pos(12, 12),
   layer("ui"),
   fixed(),
   "scoreLabel",
-  scale(0.25),
+  scale(0.20),
 ]);
 
 
 const timeLabel = add([
-  text("Time: 0"),
-  pos(12, 48),
+  text("Time: 0", { transform: transformText }),
+  pos(12, 24),
   layer("ui"),
   fixed(),
   "timeLabel",
-  scale(0.25),
+  scale(0.20),
 ]);
 
 const coinCounter = add([
-  text("Coins: 0"),
-  pos(12, 72),
+  text("Coins: 0", { transform: transformText }),
+  pos(12, 36),
   layer("ui"),
   fixed(),
-  scale(0.25),
+  scale(0.20),
   "coinCounter"
 ]);
 
@@ -303,7 +309,8 @@ player.onCollide("lava", () => {
     timeLabel.hidden = true
     
     shake(12);
-    const gameOverText = add([
+
+    add([
       text(`Game Over!\nScore: ${score}\nPress R to restart`, {
         // What font to use
         font: "monospace",
@@ -316,12 +323,7 @@ player.onCollide("lava", () => {
         lineSpacing: 8,
         letterSpacing: 4,
         // Transform each character for special effects
-        transform: (idx, ch) => ({
-            color: hsl2rgb((time() * 0.2 + idx * 0.1) % 1, 0.7, 0.8),
-            pos: vec2(0, wave(-4, 4, time() * 4 + idx * 0.5)),
-            scale: wave(1, 1.2, time() * 3 + idx),
-            angle: wave(-9, 9, time() * 3 + idx),
-        }),
+        transform: transformText,
     }),
       pos(center()),
       anchor("center"),
