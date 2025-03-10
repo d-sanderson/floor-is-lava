@@ -45,9 +45,9 @@ loadSprite("coin", "/sprites/coin.png", {
   sliceX: 1,
 });
 
-loadSound("coin-collected", "/sfx/coin-collected.mp3");
-loadSound("jump", "/sfx/jump.mp3");
-loadSound("dead", "/sfx/dead.mp3");
+loadSound("coin-collected", "/sfx/pickupCoin.wav");
+loadSound("jump", "/sfx/jump.wav");
+loadSound("dead", "/sfx/dead.wav");
 loadSound("mute", "/sfx/switch.mp3");
 
 loadShader(
@@ -73,7 +73,7 @@ vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
   + i.x + vec3(0.0, i1.x, 1.0 ));
 vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
   dot(x12.zw,x12.zw)), 0.0);
-m = m*m;
+m = m*m;  
 m = m*m;
 vec3 x = 2.0 * fract(p * C.www) - 1.0;
 vec3 h = abs(x) - 0.5;
@@ -394,6 +394,12 @@ onKeyDown("down", () => {
   player.play("duck");
 });
 
+onKeyRelease("down", () => {
+  if (gameOver) return;
+
+  player.play("idle");
+});
+
 onKeyDown("left", () => {
   if (gameOver) return;
 
@@ -419,7 +425,7 @@ onKeyDown("right", () => {
     if (gameOver) return;
 
     // Only reset to "idle" if player is not holding any of these keys
-    if (player.isGrounded() && !isKeyDown("left") && !isKeyDown("right") && !isKeyDown("down")) {
+    if (player.isGrounded() && !isKeyDown("left") && !isKeyDown("right")) {
       player.play("idle");
     }
   });
@@ -434,7 +440,7 @@ onKeyPress("r", () => {
 
 // Switch to "idle" or "run" animation when player hits ground
 player.onGround(() => {
-  if (!isKeyDown("left") && !isKeyDown("right") && !isKeyDown("down")) {
+  if (!isKeyDown("left") && !isKeyDown("right")) {
     player.play("idle");
   } else {
     player.play("run");
