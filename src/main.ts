@@ -12,13 +12,25 @@ kaplay({
   background: [15, 15, 15],
 });
 
+/**
+ * Text transform function to create a wavy, color-changing effect.
+ * It takes two parameters, idx and ch, where idx is the index of the character
+ * in the text, and ch is the character itself.
+ *
+ * Returns an object with the following properties:
+ * - color: An RGB color value, using the hsl2rgb function.
+ * - pos: The position of the character, which is a 2D vector.
+ * - scale: The scale of the character, which is a number.
+ * - angle: The angle of the character, which is a number in degrees.
+ */
 const transformText = (idx, ch) => ({
   color: hsl2rgb((time() * 0.2 + idx * 0.1) % 1, 0.7, 0.8),
   pos: vec2(0, wave(-4, 4, time() * 4 + idx * 0.5)),
   scale: wave(1, 1.2, time() * 3 + idx),
   angle: wave(-9, 9, time() * 3 + idx),
 });
-// Loading sprites
+
+// Load sprites
 loadSprite("dino", "/sprites/dino-2.png", {
   sliceX: 10,
   anims: {
@@ -40,16 +52,17 @@ loadSprite("dino", "/sprites/dino-2.png", {
   },
 });
 
-// Load coin sprite
 loadSprite("coin", "/sprites/coin.png", {
   sliceX: 1,
 });
 
+// Load sounds
 loadSound("coin-collected", "/sfx/pickupCoin.wav");
 loadSound("jump", "/sfx/jump.wav");
 loadSound("dead", "/sfx/dead.wav");
 loadSound("mute", "/sfx/switch.mp3");
 
+// Load Shaders
 loadShader(
   "lava",
   null,
@@ -154,6 +167,7 @@ let coinsCollected = 0;
 let gameOver = false;
 let survivalTime = 0;
 let lastPlatformY = 0;
+let isMuted = false;
 
 // Set up physics
 setGravity(640);
@@ -208,9 +222,6 @@ const lava = add([
 ]);
 
 // UI elements
-
-// Add these lines near the top of your script with other game constants
-let isMuted = false;
 
 // Add this function to toggle sound state
 function toggleMute() {
@@ -291,6 +302,84 @@ const player = add([
 
 // Play initial animation
 player.play("idle");
+
+// Switch to "idle" or "run" animation when player hits ground
+player.onGround(() => {
+  if (!isKeyDown("left") && !isKeyDown("right")) {
+    player.play("idle");
+  } else {
+    player.play("run");
+  }
+});
+
+// Collision with coins
+player.onCollide("coin", (coin) => {
+  destroy(coin);
+  coinsCollected++;
+  score += 10;
+
+  //play coin collect sound
+  play("coin-collected", {
+    volume: 1,
+    speed: 1,
+  });
+  coinCounter.text = `Coins: ${coinsCollected}`;
+  scoreLabel.text = `Score: ${score}`;
+});
+
+// Collision with lava
+player.onCollide("lava", () => {
+  if (!gameOver) {
+    gameOver = true;
+    // hide coin counter, score label, and time label
+    coinCounter.hidden = true;
+    scoreLabel.hidden = true;
+    timeLabel.hidden = true;
+    play("dead");
+    player.jump(JUMP_FORCE);
+    player.animate("angle", [0, 360], {
+      duration: 2,
+      direction: "forward",
+      loops: 1,
+    });
+    shake(4);
+    player.play("dead");
+    add([
+      text(`Game Over!\nScore: ${score}\nPress R to restart`, {
+        // What font to use
+        font: "monospace",
+        // It'll wrap to next line if the text width exceeds the width option specified here
+        width: width() - 24 * 2,
+        // The height of character
+        size: 24,
+        // Text alignment ("left", "center", "right", default "left")
+        align: "left",
+        lineSpacing: 8,
+        letterSpacing: 4,
+        // Transform each character for special effects
+        // rgb for red
+        transform: { color: rgb(255, 0, 0) },
+      }),
+      pos(center()),
+      anchor("center"),
+      layer("ui"),
+      fixed(),
+      // scale(0),
+      "gameOverText",
+    ]);
+  }
+});
+
+// Screen wrap
+player.onUpdate(() => {
+  if (player.pos.x < 0) {
+    player.pos.x = width();
+  }
+  if (player.pos.x > width()) {
+    player.pos.x = 0;
+  }
+});
+
 
 // Function to generate random platforms
 function spawnPlatforms() {
@@ -388,6 +477,7 @@ onKeyPress("space", () => {
   }
 });
 
+// Keyboard controls
 onKeyDown("down", () => {
   if (gameOver) return;
 
@@ -435,83 +525,6 @@ onKeyPress("r", () => {
   if (gameOver) {
     get("gameOverText").forEach(destroy);
     startGame();
-  }
-});
-
-// Switch to "idle" or "run" animation when player hits ground
-player.onGround(() => {
-  if (!isKeyDown("left") && !isKeyDown("right")) {
-    player.play("idle");
-  } else {
-    player.play("run");
-  }
-});
-
-// Collision with coins
-player.onCollide("coin", (coin) => {
-  destroy(coin);
-  coinsCollected++;
-  score += 10;
-
-  //play coin collect sound
-  play("coin-collected", {
-    volume: 1,
-    speed: 1,
-  });
-  coinCounter.text = `Coins: ${coinsCollected}`;
-  scoreLabel.text = `Score: ${score}`;
-});
-
-// Collision with lava
-player.onCollide("lava", () => {
-  if (!gameOver) {
-    gameOver = true;
-    // hide coin counter, score label, and time label
-    coinCounter.hidden = true;
-    scoreLabel.hidden = true;
-    timeLabel.hidden = true;
-    play("dead");
-    player.jump(JUMP_FORCE);
-    player.animate("angle", [0, 360], {
-      duration: 2,
-      direction: "forward",
-      loops: 1,
-    });
-    shake(4);
-    player.play("dead");
-    add([
-      text(`Game Over!\nScore: ${score}\nPress R to restart`, {
-        // What font to use
-        font: "monospace",
-        // It'll wrap to next line if the text width exceeds the width option specified here
-        width: width() - 24 * 2,
-        // The height of character
-        size: 24,
-        // Text alignment ("left", "center", "right", default "left")
-        align: "left",
-        lineSpacing: 8,
-        letterSpacing: 4,
-        // Transform each character for special effects
-        // rgb for red
-        transform: { color: rgb(255, 0, 0)},
-      }),
-      pos(center()),
-      anchor("center"),
-      layer("ui"),
-      fixed(),
-      // scale(0),
-      "gameOverText",
-    ]);
-  }
-});
-
-// Screen wrap
-player.onUpdate(() => {
-  if (player.pos.x < 0) {
-    player.pos.x = width();
-  }
-  if (player.pos.x > width()) {
-    player.pos.x = 0;
   }
 });
 
