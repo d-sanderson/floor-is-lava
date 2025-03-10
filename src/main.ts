@@ -17,24 +17,26 @@ const transformText = (idx, ch) => ({
   pos: vec2(0, wave(-4, 4, time() * 4 + idx * 0.5)),
   scale: wave(1, 1.2, time() * 3 + idx),
   angle: wave(-9, 9, time() * 3 + idx),
-})
+});
 // Loading sprites
-loadSprite("dino", "/sprites/dino.png", {
-  sliceX: 9,
+loadSprite("dino", "/sprites/dino-2.png", {
+  sliceX: 10,
   anims: {
-    "idle": {
+    idle: {
       from: 0,
       to: 3,
       speed: 5,
       loop: true,
     },
-    "run": {
+    run: {
       from: 4,
       to: 7,
       speed: 10,
       loop: true,
     },
-    "jump": 8,
+    duck: 2,
+    jump: 8,
+    dead: 9,
   },
 });
 
@@ -44,9 +46,9 @@ loadSprite("coin", "/sprites/coin.png", {
 });
 
 loadSound("coin-collected", "/sfx/coin-collected.mp3");
-loadSound("jump", "/sfx/jump.mp3")
-loadSound("dead", "/sfx/dead.mp3")
-loadSound("mute", "/sfx/switch.mp3")
+loadSound("jump", "/sfx/jump.mp3");
+loadSound("dead", "/sfx/dead.mp3");
+loadSound("mute", "/sfx/switch.mp3");
 
 loadShader(
   "lava",
@@ -159,11 +161,11 @@ setGravity(640);
 // Create a component for double jump
 function doubleJump() {
   let jumps = 0;
-  
+
   return {
     id: "doubleJump",
     require: ["body"],
-    
+
     doubleJump(force = DOUBLE_JUMP_FORCE) {
       if (jumps < 1) {
         this.jump(force);
@@ -172,21 +174,24 @@ function doubleJump() {
       }
       return false;
     },
-    
+
     update() {
       if (this.isGrounded()) {
         jumps = 0;
       }
-    }
+    },
   };
 }
 
 // Create game layers
-setLayers([
-  "bg",     // Background
-  "game",   // Main game elements
-  "ui",     // UI elements
-], "game");
+setLayers(
+  [
+    "bg", // Background
+    "game", // Main game elements
+    "ui", // UI elements
+  ],
+  "game"
+);
 
 // Add lava
 const lava = add([
@@ -198,8 +203,8 @@ const lava = add([
   "lava",
   z(100),
   shader("lava", () => ({
-    "u_time": time(),
-})),
+    u_time: time(),
+  })),
 ]);
 
 // UI elements
@@ -210,10 +215,10 @@ let isMuted = false;
 // Add this function to toggle sound state
 function toggleMute() {
   isMuted = !isMuted;
-  
+
   // KaPlay's volume control (0 = muted, 1 = full volume)
-  volume(isMuted ? 0 : 1);
-  
+  setVolume(isMuted ? 0 : 1);
+
   // Update the mute button text
   if (muteBtn) {
     muteBtn.text = isMuted ? "🔇" : "🔊";
@@ -228,20 +233,20 @@ const muteBtn = add([
   area({ cursor: "pointer" }),
   layer("ui"),
   fixed(),
-  scale(.25),
+  scale(0.25),
   "muteBtn",
 ]);
 
 // Add this with your other input handlers
 muteBtn.onClick(() => {
   toggleMute();
-  play("mute")
+  play("mute");
 });
 
 // You can also add a keyboard shortcut if you want
 onKeyPress("m", () => {
   toggleMute();
-  play("mute")
+  play("mute");
 });
 
 const scoreLabel = add([
@@ -250,9 +255,8 @@ const scoreLabel = add([
   layer("ui"),
   fixed(),
   "scoreLabel",
-  scale(0.20),
+  scale(0.2),
 ]);
-
 
 const timeLabel = add([
   text("Time: 0", { transform: transformText }),
@@ -260,7 +264,7 @@ const timeLabel = add([
   layer("ui"),
   fixed(),
   "timeLabel",
-  scale(0.20),
+  scale(0.2),
 ]);
 
 const coinCounter = add([
@@ -268,8 +272,8 @@ const coinCounter = add([
   pos(12, 36),
   layer("ui"),
   fixed(),
-  scale(0.20),
-  "coinCounter"
+  scale(0.2),
+  "coinCounter",
 ]);
 
 // Add our player character
@@ -281,6 +285,7 @@ const player = add([
   body(),
   doubleJump(),
   layer("game"),
+  animate(),
   "player",
 ]);
 
@@ -291,14 +296,14 @@ player.play("idle");
 function spawnPlatforms() {
   // Clear existing platforms
   get("platform").forEach(destroy);
-  
+
   lastPlatformY = height() - 24;
-  
+
   // Add platforms with better spacing
   for (let i = 0; i < NUM_PLATFORMS; i++) {
     const x = rand(50, width() - 50 - PLATFORM_WIDTH);
     const y = height() - 100 - i * PLATFORM_SPACING;
-    const platformWidth =  rand(PLATFORM_WIDTH - 50, PLATFORM_WIDTH + 50)
+    const platformWidth = rand(PLATFORM_WIDTH - 50, PLATFORM_WIDTH + 50);
     add([
       rect(platformWidth, PLATFORM_HEIGHT),
       area(),
@@ -309,7 +314,7 @@ function spawnPlatforms() {
       layer("game"),
       "platform",
     ]);
-    
+
     lastPlatformY = Math.min(lastPlatformY, y);
   }
 }
@@ -318,12 +323,12 @@ function spawnPlatforms() {
 function spawnCoins() {
   // Clear existing coins
   get("coin").forEach(destroy);
-  
+
   // Add coins
   for (let i = 0; i < NUM_COINS; i++) {
     const x = rand(50, width() - 50);
     const y = rand(lastPlatformY, height() - 100);
-    
+
     add([
       sprite("coin"),
       area(),
@@ -333,7 +338,6 @@ function spawnCoins() {
       "coin",
       scale(0.25),
     ]);
-
   }
 }
 
@@ -344,31 +348,34 @@ function startGame() {
   coinsCollected = 0;
   survivalTime = 0;
 
-  scoreLabel.hidden = false
-  coinCounter.hidden = false
-  timeLabel.hidden = false
-  
+  scoreLabel.hidden = false;
+  coinCounter.hidden = false;
+  timeLabel.hidden = false;
+
   // Reset lava position
   lava.pos.y = height();
-  
+
   // Generate platforms
   spawnPlatforms();
-  
+
   // Spawn coins
   spawnCoins();
-  
+
   // Reset player
   const lowestPlatform = get("platform").reduce((lowest, platform) => {
     return platform.pos.y > lowest.pos.y ? platform : lowest;
   }, get("platform")[0]);
-  player.pos = vec2(lowestPlatform.pos.x + PLATFORM_WIDTH / 2, lowestPlatform.pos.y - PLATFORM_HEIGHT);
+  player.pos = vec2(
+    lowestPlatform.pos.x + PLATFORM_WIDTH / 2,
+    lowestPlatform.pos.y - PLATFORM_HEIGHT
+  );
   player.play("idle");
 }
 
 // Player controls
 onKeyPress("space", () => {
   if (gameOver) return;
-  
+
   if (player.isGrounded()) {
     player.jump(JUMP_FORCE);
     player.play("jump");
@@ -381,9 +388,15 @@ onKeyPress("space", () => {
   }
 });
 
+onKeyDown("down", () => {
+  if (gameOver) return;
+
+  player.play("duck");
+});
+
 onKeyDown("left", () => {
   if (gameOver) return;
-  
+
   player.move(-SPEED, 0);
   player.flipX = true;
   if (player.isGrounded() && player.curAnim() !== "run") {
@@ -393,7 +406,7 @@ onKeyDown("left", () => {
 
 onKeyDown("right", () => {
   if (gameOver) return;
-  
+
   player.move(SPEED, 0);
   player.flipX = false;
   if (player.isGrounded() && player.curAnim() !== "run") {
@@ -404,9 +417,9 @@ onKeyDown("right", () => {
 ["left", "right"].forEach((key) => {
   onKeyRelease(key, () => {
     if (gameOver) return;
-    
+
     // Only reset to "idle" if player is not holding any of these keys
-    if (player.isGrounded() && !isKeyDown("left") && !isKeyDown("right")) {
+    if (player.isGrounded() && !isKeyDown("left") && !isKeyDown("right") && !isKeyDown("down")) {
       player.play("idle");
     }
   });
@@ -421,7 +434,7 @@ onKeyPress("r", () => {
 
 // Switch to "idle" or "run" animation when player hits ground
 player.onGround(() => {
-  if (!isKeyDown("left") && !isKeyDown("right")) {
+  if (!isKeyDown("left") && !isKeyDown("right") && !isKeyDown("down")) {
     player.play("idle");
   } else {
     player.play("run");
@@ -438,7 +451,7 @@ player.onCollide("coin", (coin) => {
   play("coin-collected", {
     volume: 1,
     speed: 1,
-});
+  });
   coinCounter.text = `Coins: ${coinsCollected}`;
   scoreLabel.text = `Score: ${score}`;
 });
@@ -448,18 +461,24 @@ player.onCollide("lava", () => {
   if (!gameOver) {
     gameOver = true;
     // hide coin counter, score label, and time label
-    coinCounter.hidden = true
-    scoreLabel.hidden = true
-    timeLabel.hidden = true
-    play("dead") 
-    shake(12);
-
+    coinCounter.hidden = true;
+    scoreLabel.hidden = true;
+    timeLabel.hidden = true;
+    play("dead");
+    player.jump(JUMP_FORCE);
+    player.animate("angle", [0, 360], {
+      duration: 2,
+      direction: "forward",
+      loops: 1,
+    });
+    shake(4);
+    player.play("dead");
     add([
       text(`Game Over!\nScore: ${score}\nPress R to restart`, {
         // What font to use
         font: "monospace",
         // It'll wrap to next line if the text width exceeds the width option specified here
-        width: width() - 24 *2,
+        width: width() - 24 * 2,
         // The height of character
         size: 24,
         // Text alignment ("left", "center", "right", default "left")
@@ -467,8 +486,9 @@ player.onCollide("lava", () => {
         lineSpacing: 8,
         letterSpacing: 4,
         // Transform each character for special effects
-        transform: transformText,
-    }),
+        // rgb for red
+        transform: { color: rgb(255, 0, 0)},
+      }),
       pos(center()),
       anchor("center"),
       layer("ui"),
@@ -492,7 +512,6 @@ player.onUpdate(() => {
 // Game update
 onUpdate(() => {
   if (!gameOver) {
-
     // Make the lava rise faster over time
     // The speed of the lava is modified by a power function to make it rise exponentially
     // The power function is used to make the lava speed up quickly at the start but slow down later
@@ -500,11 +519,11 @@ onUpdate(() => {
     // The `survivalTime * 0.01` is used to make the lava speed up faster at the start and slower later
     // The `dt()` is used to make the lava speed up based on the time since the last frame
     lava.pos.y -= LAVA_RISE_SPEED * Math.pow(1.1, survivalTime * 0.01) * dt();
-    
+
     // Update survival time
     survivalTime += dt();
     timeLabel.text = `Time: ${Math.floor(survivalTime)}`;
-    
+
     // Update score based on survival time
     score = coinsCollected * 10 + Math.floor(survivalTime);
     scoreLabel.text = `Score: ${score}`;
